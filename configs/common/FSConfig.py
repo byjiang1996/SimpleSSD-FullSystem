@@ -255,15 +255,17 @@ def makeArmSystem(mem_mode, machine_type, simplessd, num_cpus=1, mdesc=None,
     else:
         self.cf0 = CowIdeDisk(driveID='master')
         self.cf0.childImage(mdesc.disk())
+        self.disk2 = CowIdeDisk(driveID='master')
+        self.disk2.childImage(disk('workloads.img'))
         # Old platforms have a built-in IDE or CF controller. Default to
         # the IDE controller if both exist. New platforms expect the
         # storage controller to be added from the config script.
         if hasattr(self.realview, "ide"):
-            self.realview.ide.disks = [self.cf0]
+            self.realview.ide.disks = [self.cf0, self.disk2]
         elif hasattr(self.realview, "cf_ctrl"):
-            self.realview.cf_ctrl.disks = [self.cf0]
+            self.realview.cf_ctrl.disks = [self.cf0, self.disk2]
         else:
-            self.pci_ide = IdeController(disks=[self.cf0])
+            self.pci_ide = IdeController(disks=[self.cf0, self.disk2])
             pci_devices.append(self.pci_ide)
 
     if simplessd['interface'] == 'nvme':
