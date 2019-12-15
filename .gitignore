@@ -29,8 +29,6 @@ m5out
 # SimpleSSD specific
 .clang_complete
 .clang-format
-*.cfg
-*.sh
 scripts/
 compile_flags.txt
 .vscode/
