@@ -128,7 +128,8 @@ def findPartOffset(devFile, fileName, partition):
     dev = LoopbackDevice()
     dev.setup(fileName)
     # Dump the partition information.
-    command = [findProg('sfdisk'), '-d', dev.devFile]
+    # need to specify the 2.24 sfdisk location
+    command = [findProg('/home/binyaoj2/util-linux-2.24/sfdisk'), '-d', dev.devFile]
     (out, returncode) = privOutput(command)
     if returncode != 0:
         print out
@@ -283,8 +284,9 @@ partitionCom = Command('partition', 'Partition part of "init".',
 
 def partition(dev, cylinders, heads, sectors):
     # Use fdisk to partition the device
+    # need to specify the 2.24 sfdisk location
     comStr = '0,\n;\n;\n;\n'
-    return runPriv([findProg('sfdisk'), '--no-reread', '-D', \
+    return runPriv([findProg('/home/binyaoj2/util-linux-2.24/sfdisk'), '--no-reread', '-D', \
                    '-C', "%d" % cylinders, \
                    '-H', "%d" % heads, \
                    '-S', "%d" % sectors, \
