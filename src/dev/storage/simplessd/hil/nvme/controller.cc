@@ -240,7 +240,32 @@ void Controller::writeRegister(uint64_t offset, uint64_t size, uint8_t *buffer,
   uint32_t uiTemp32;
   uint64_t uiTemp64;
 
-  if (size == 4) {
+  if (offset >= REG_BATCH_INTR_BASE_ADDR)
+  {
+    debugprint(LOG_HIL_NVME, "BAR0    | WRITE | Batch Interrupt Info");
+
+    uint16_t cqid = (offset - REG_BATCH_INTR_BASE_ADDR) / 4;
+    memcpy(&uiTemp32, buffer, 4);
+    if (cqid < cqsize && ppCQueue[cqid])
+    {
+      CQueue *pQueue = ppCQueue[cqid];
+      if (uiTemp32 >> 24) {
+        pQueue->setBatchIntrInfo((uint16_t)uiTemp32);
+        // already satisfy interrupt trigger condition
+        if (pQueue->batchIntrTriggerable()) {
+          gUnpipelinedCQFIFO.push_back(pQueue->getID());
+          pQueue->setBatchIntrUsed();
+          completion();
+          warn("Batch interrupt not pipelined!");
+        }
+      }
+      else
+        pQueue->disableBatchIntrMode();
+    }
+
+    debugprint(LOG_HIL_NVME, "DMAPORT | WRITE | DATA %08" PRIX32, uiTemp32);
+  }
+  else if (size == 4) {
     memcpy(&uiTemp32, buffer, 4);
 
     switch (offset) {
@@ -436,7 +461,7 @@ void Controller::ringCQHeadDoorbell(uint16_t qid, uint16_t head, uint64_t &) {
                qid, oldcount, pQueue->getItemCount(), oldhead,
                pQueue->getHead(), pQueue->getTail());
 
-    if (pQueue->interruptEnabled()) {
+    if (pQueue->interruptEnabled() && !pQueue->getBatchIntrMode()) {
       clearInterrupt(pQueue->getInterruptVector());
     }
   }
@@ -1549,6 +1574,16 @@ void Controller::completion() {
   DMAContext *submitContext = new DMAContext(doSubmit);
   CompletionContext *pData = new CompletionContext();
 
+  for (auto &cqID : gUnpipelinedCQFIFO) {
+    pQueue = ppCQueue[cqID];
+
+    submitContext->counter++;
+    uint16_t iv = pQueue->getInterruptVector();
+    pData->ivToPost.push_back(iv);
+    pQueue->triggerBatchIntr(doSubmit, submitContext);
+  }
+  gUnpipelinedCQFIFO.clear();
+
   submitContext->context = pData;
 
   for (auto iter = lCQFIFO.begin(); iter != lCQFIFO.end();) {
@@ -1580,7 +1615,14 @@ void Controller::completion() {
         auto map = aggregationMap.find(iv);
 
         if (map != aggregationMap.end()) {
-          if (map->second.valid) {
+          if (pQueue->getBatchIntrMode()) {
+              // no timeout currently. Only if we meet the user's required completion count, we will trigger interrupt.
+              if (pQueue->batchIntrTriggerable())
+                pQueue->setBatchIntrUsed();
+              else
+                post = false;
+          }
+          else if (map->second.valid) {
             map->second.requestCount++;
 
             if (iter.submitAt < map->second.nextTime &&

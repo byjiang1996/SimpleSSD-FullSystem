@@ -130,8 +130,19 @@ class CQueue : public Queue {
   bool phase;
   uint16_t interruptVector;
 
+  bool batch_interrupt_mode;
+  uint16_t batch_interrupt_ptr;
+  bool batch_interrupt_used;
+
  public:
   CQueue(uint16_t, bool, uint16_t, uint16_t);
+
+  void setBatchIntrInfo(uint16_t);
+  void disableBatchIntrMode();
+  bool getBatchIntrMode();
+  void setBatchIntrUsed();
+  bool batchIntrTriggerable();
+  void triggerBatchIntr(DMAFunction, void *);
 
   void setData(CQEntry *, DMAFunction, void *);
   uint16_t incHead();

@@ -114,6 +114,7 @@ class Controller : public StatObject {
 
   bool checkQueue(SQueue *, DMAFunction &, void *);
 
+  std::vector<uint16_t> gUnpipelinedCQFIFO;
  public:
   Controller(Interface *, ConfigReader &);
   ~Controller();

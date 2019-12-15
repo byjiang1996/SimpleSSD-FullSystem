@@ -106,6 +106,41 @@ void Queue::setBase(DMAInterface *p, uint64_t s) {
 CQueue::CQueue(uint16_t iv, bool en, uint16_t qid, uint16_t size)
     : Queue(qid, size), ien(en), phase(true), interruptVector(iv) {}
 
+void CQueue::setBatchIntrInfo(uint16_t ptr){
+  batch_interrupt_mode = true;
+  batch_interrupt_ptr = ptr;
+  batch_interrupt_used = false;
+}
+
+void CQueue::disableBatchIntrMode(){
+  batch_interrupt_mode = false;
+}
+
+bool CQueue::getBatchIntrMode(){
+  return batch_interrupt_mode;
+}
+
+void CQueue::setBatchIntrUsed(){
+  batch_interrupt_used = true;
+}
+
+bool CQueue::batchIntrTriggerable(){
+  if (!batch_interrupt_mode || batch_interrupt_used)
+    return false;
+  if (tail >= batch_interrupt_ptr && batch_interrupt_ptr >= head) // valid case1
+        return true;
+  if (tail < head && head <= batch_interrupt_ptr) // valid case2
+        return true;
+  if (batch_interrupt_ptr <= tail && tail < head) // valid case3
+        return true;
+  return false;
+}
+
+void CQueue::triggerBatchIntr(DMAFunction func, void *context) {
+  base->write(batch_interrupt_ptr * stride, 0x10, NULL, func, context);
+  batch_interrupt_used = true;
+}
+
 void CQueue::setData(CQEntry *entry, DMAFunction func, void *context) {
   if (entry) {
     // Set phase

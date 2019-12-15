@@ -828,6 +828,7 @@ void PageMapping::trimInternal(Request &req, uint64_t &tick) {
       auto block = blocks.find(mapping.first);
 
       if (block == blocks.end()) {
+        continue; // to deal with the potential bugs here
         panic("Block is not in use");
       }
 
